@@ -14,12 +14,12 @@ class Schwab(SessionManager):
         self.headless = kwargs.get("headless", True)
         self.browserType = kwargs.get("browserType", "firefox")
         super(Schwab, self).__init__()
-   
+
     def get_account_info(self):
         """
             Returns a dictionary of Account objects where the key is the account number
         """
-        
+
         account_info = dict()
         r = self.session.get(urls.positions_data())
         response = json.loads(r.text)
@@ -47,15 +47,15 @@ class Schwab(SessionManager):
 
         return account_info
 
-    def trade(self, ticker, side, qty, account_id, dry_run=True):
+    def __verify(self, ticker, side, qty, account_id):
         """
             ticker (Str) - The symbol you want to trade,
             side (str) - Either 'Buy' or 'Sell',
             qty (int) - The amount of shares to buy/sell,
-            account_id (int) - The account ID to place the trade on. If the ID is XXXX-XXXX, 
+            account_id (int) - The account ID to place the trade on. If the ID is XXXX-XXXX,
                          we're looking for just XXXXXXXX.
 
-            Returns messages (list of strings), is_success (boolean)
+            Returns messages (list of strings), response, is_success (boolean)
         """
 
         if side == "Buy":
@@ -82,16 +82,46 @@ class Schwab(SessionManager):
         r = self.session.post(urls.order_verification(), data)
 
         if r.status_code != 200:
-            return [r.text], False
-        
+            return [r.text], None, False
+
         response = json.loads(r.text)
 
         messages = list()
         for message in response["Messages"]:
             messages.append(message["Message"])
 
+        return messages, response, True
+
+    def quote(self, ticker, side, qty, account_id):
+        """
+            ticker (Str) - The symbol you want to trade,
+            side (str) - Either 'Buy' or 'Sell',
+            qty (int) - The amount of shares to buy/sell,
+            account_id (int) - The account ID to place the trade on. If the ID is XXXX-XXXX,
+                         we're looking for just XXXXXXXX.
+
+            Returns response, is_success (boolean)
+        """
+
+        messages, response, success = self.__verify(ticker, side, qty, account_id)
+
+        return response, success
+
+    def trade(self, ticker, side, qty, account_id, dry_run=True):
+        """
+            ticker (Str) - The symbol you want to trade,
+            side (str) - Either 'Buy' or 'Sell',
+            qty (int) - The amount of shares to buy/sell,
+            account_id (int) - The account ID to place the trade on. If the ID is XXXX-XXXX,
+                         we're looking for just XXXXXXXX.
+
+            Returns messages (list of strings), is_success (boolean)
+        """
+
+        messages, response, success = self.__verify(ticker, side, qty, account_id)
+
         if dry_run:
-            return messages, True
+            return messages, success
 
         data = {
             "AccountId": str(account_id),
@@ -123,3 +153,4 @@ class Schwab(SessionManager):
             return messages, True
 
         return messages, False
+
