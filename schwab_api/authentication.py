@@ -57,13 +57,13 @@ class SessionManager:
             self.page.fill("[placeholder=\"Access Code\"]", str(code))
             with self.page.expect_navigation():
                 self.page.click("text=Continue")
-                
+
         self.save_and_close_session()
-        return self.page.url == urls.account_summary()
+        return self.page.url.startswith(urls.account_summary())
 
     def login(self, username, password, totp_secret=None):
         """ This function will log the user into schwab using Playwright and saving
-        the authentication cookies in the session header. 
+        the authentication cookies in the session header.
         :type username: str
         :param username: The username for the schwab account.
 
@@ -71,14 +71,14 @@ class SessionManager:
         :param password: The password for the schwab account/
 
         :type by_totp: Optional[str]
-        :param by_totp: The TOTP secret used to complete multi-factor authentication 
+        :param by_totp: The TOTP secret used to complete multi-factor authentication
             through Symantec VIP. If this isn't given, sign in will use SMS.
 
         :rtype: boolean
         :returns: True if login was successful and no further action is needed or False
             if login requires additional steps (i.e. SMS)
         """
-        
+
         # Log in to schwab using Playwright
         with self.page.expect_navigation():
             self.page.goto("https://www.schwab.com/")
@@ -91,7 +91,7 @@ class SessionManager:
         # Fill username
         self.page.frame(name=login_frame).click("[placeholder=\"Login ID\"]")
         self.page.frame(name=login_frame).fill("[placeholder=\"Login ID\"]", username)
-        
+
         # Add TOTP to password
         if totp_secret is not None:
             totp = pyotp.TOTP(totp_secret)
@@ -110,7 +110,7 @@ class SessionManager:
 
         self.page.wait_for_load_state('networkidle')
 
-        if self.page.url != urls.account_summary():
+        if not self.page.url.startswith(urls.account_summary()):
             # We need further authentication, so we'll send an SMS
             print("Authentication state is not available. We will need to go through two factor authentication.")
             print("You should receive a code through SMS soon")
